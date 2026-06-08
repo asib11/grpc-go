@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	proto "grpc/protoc"
@@ -20,7 +19,7 @@ func (s *server) ServerReply(ctx context.Context, req *proto.HelloRequest) (*pro
 
 	fmt.Printf("Received request with SomeString: %s\n", req.SomeString)
 	fmt.Printf("Hello from the server!\n")
-	return &proto.HelloResponse{}, errors.New("")
+	return &proto.HelloResponse{Reply: "Hello " + req.SomeString}, nil
 }
 
 func main() {
