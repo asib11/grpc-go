@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	proto "grpc/protoc"
+	"io"
 	"net/http"
-	"encoding/json"
+	"time"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -28,33 +31,33 @@ func main() {
 }
 
 func clientConnectionServer(w http.ResponseWriter, r *http.Request) {
-	req := []*proto.HelloRequest{
-		{SomeString: "Request 1"},
-		{SomeString: "Request 2"},
-		{SomeString: "Request 3"},
-		{SomeString: "Request 4"},
-		{SomeString: "Request 5"},
-		{SomeString: "Request 6"},
-	}
 
-	stream, err := client.ServerReply(context.TODO())
+	stream, err := client.ServerReply(context.TODO(), &proto.HelloRequest{SomeString: "Hello Server!"})
 	if err != nil {
 		http.Error(w, "Error calling ServerReply: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	for _, r := range req {
-		if err := stream.Send(r); err != nil {
-			http.Error(w, "Error sending request: "+err.Error(), http.StatusInternalServerError)
+	count := 0
+	for {
+		message, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			http.Error(w, "Error receiving stream: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		fmt.Println("Received from server:", message)
+		time.Sleep(1 * time.Second)
+		count++
 	}
 
-	resp, err := stream.CloseAndRecv()
-	if err != nil {
-		http.Error(w, "Error receiving response: "+err.Error(), http.StatusInternalServerError)
-		return
+	response := map[string]interface{}{
+		"message": "Finished receiving messages from server",
+		"count":   count,
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{"message count": resp})
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

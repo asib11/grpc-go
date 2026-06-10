@@ -2,8 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"strconv"
+	"time"
 
 	proto "grpc/protoc"
 	"net"
@@ -16,21 +15,25 @@ type server struct {
 	proto.UnimplementedExampleServer
 }
 
-func (s *server) ServerReply(stream proto.Example_ServerReplyServer) error {
-	count := 0
-	for {
-		req, err := stream.Recv()
-		if err == io.EOF {
-			return stream.SendAndClose(&proto.HelloResponse{
-				Reply: strconv.Itoa(count),
-			})
-		}
-		if err != nil {
+func (s *server) ServerReply(req *proto.HelloRequest, stream proto.Example_ServerReplyServer) error {
+	fmt.Println("Received request:", req.SomeString)
+	time.Sleep(5 * time.Second)
+
+	serverReply1 := []*proto.HelloResponse{
+		{Reply: "Response 1"},
+		{Reply: "Response 2"},
+		{Reply: "Response 3"},
+		{Reply: "Response 4"},
+		{Reply: "Response 5"},
+	}
+
+	for _, r := range serverReply1 {
+		if err := stream.Send(r)
+		err != nil {
 			return err
 		}
-		count++
-		fmt.Println(req)
 	}
+	return nil
 }
 
 func main() {
