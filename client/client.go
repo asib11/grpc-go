@@ -7,7 +7,6 @@ import (
 	proto "grpc/protoc"
 	"io"
 	"net/http"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -32,30 +31,41 @@ func main() {
 
 func clientConnectionServer(w http.ResponseWriter, r *http.Request) {
 
-	stream, err := client.ServerReply(context.TODO(), &proto.HelloRequest{SomeString: "Hello Server!"})
+	stream, err := client.ServerReply(context.TODO())
 	if err != nil {
 		http.Error(w, "Error calling ServerReply: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	count := 0
+	send, receive := 0, 0
+	for i := 0; i < 10; i++ {
+		err := stream.Send(&proto.HelloRequest{SomeString: fmt.Sprintf("Send %d from client", i+1)})
+		if err != nil {
+			http.Error(w, "Error sending message: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		send++
+	}
+
+	if err := stream.CloseSend(); err != nil {
+		http.Error(w, "Error closing send stream: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	for {
-		message, err := stream.Recv()
+		resp, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			http.Error(w, "Error receiving stream: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		fmt.Println("Received from server:", message)
-		time.Sleep(1 * time.Second)
-		count++
+
+		fmt.Println("Received from server:", resp.Reply)
+		receive++
 	}
 
 	response := map[string]interface{}{
-		"message": "Finished receiving messages from server",
-		"count":   count,
+		"message":http.StatusText(http.StatusOK),
+		"messages_sent":     send,
+		"messages_received": receive,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
