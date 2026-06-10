@@ -1,8 +1,9 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"io"
+	"strconv"
 
 	proto "grpc/protoc"
 	"net"
@@ -15,11 +16,21 @@ type server struct {
 	proto.UnimplementedExampleServer
 }
 
-func (s *server) ServerReply(ctx context.Context, req *proto.HelloRequest) (*proto.HelloResponse, error) {
-
-	fmt.Printf("Received request with SomeString: %s\n", req.SomeString)
-	fmt.Printf("Hello from the server!\n")
-	return &proto.HelloResponse{Reply: "Hello " + req.SomeString}, nil
+func (s *server) ServerReply(stream proto.Example_ServerReplyServer) error {
+	count := 0
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&proto.HelloResponse{
+				Reply: strconv.Itoa(count),
+			})
+		}
+		if err != nil {
+			return err
+		}
+		count++
+		fmt.Println(req)
+	}
 }
 
 func main() {
