@@ -1,8 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"time"
+	"io"
 
 	proto "grpc/protoc"
 	"net"
@@ -15,24 +16,27 @@ type server struct {
 	proto.UnimplementedExampleServer
 }
 
-func (s *server) ServerReply(req *proto.HelloRequest, stream proto.Example_ServerReplyServer) error {
-	fmt.Println("Received request:", req.SomeString)
-	time.Sleep(5 * time.Second)
+func (s *server) ServerReply(stream proto.Example_ServerReplyServer) error {
+	for i := 0; i < 5; i++ {
+		err := stream.Send(&proto.HelloResponse{Reply: fmt.Sprintf("Hello from server %d", i+1)})
 
-	serverReply1 := []*proto.HelloResponse{
-		{Reply: "Response 1"},
-		{Reply: "Response 2"},
-		{Reply: "Response 3"},
-		{Reply: "Response 4"},
-		{Reply: "Response 5"},
-	}
-
-	for _, r := range serverReply1 {
-		if err := stream.Send(r)
-		err != nil {
-			return err
+		if err != nil {
+			return errors.New("Error sending message: " + err.Error())
 		}
+
 	}
+
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return errors.New("Error receiving message: " + err.Error())
+		}
+		fmt.Println(req.SomeString)
+	}
+
 	return nil
 }
 
